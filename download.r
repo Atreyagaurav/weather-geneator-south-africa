@@ -66,5 +66,5 @@ days_after_1979 <- function(datetime_str){
 }
 
 df$time_days <- days_after_1979(df$datetime)
-
+names(df)[5] <- "geopotential_ht"
 write.csv(df, "ncep-data.csv")
