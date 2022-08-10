@@ -10,7 +10,6 @@ library(forecast)
 library(biwavelet)
 library(parallel)
 
-setwd("/home/fs01/nn289/WRs.large.ensemble_NHMMs/")
 
 #-- NOTE: Run auxiliary function "fit.NHMMs.depmix" beforehand -- #
 #Aux#
@@ -37,10 +36,7 @@ fit.long.NHMMs.depmix <- function(my.nstates,
   #'  num.iteration.msar : number of simulation of Markov Chain 
   #'  modeltype : annual, seasonal, interannual
 
-  
-  
-  require(depmixS4)
-  
+
   # Prepare simulation output: [number of days (t) * number of sets of simulated WRs (entire stretch, t)] x number of ensemble members
   ts.length <- length(my.dates.vec)*my.num.sim
   matrix.hmms.seq.states <- array (NA,c(ts.length,num.iteration.hmms))
@@ -270,7 +266,7 @@ fit.long.NHMMs.depmix <- function(my.nstates,
 
 #1#
 #// Load processed 500mb-GPH hgt region data and dates
-hgt.synoptic.region <- readRDS(file='/home/fs01/nn289/WRs.large.ensemble_NHMMs/myData/hgt.500.Pacific.NorthAmer.synoptic.region_19480101_20211231.rds')
+hgt.synoptic.region <- readRDS(file='hgt.500.Pacific.NorthAmer.synoptic.region_19480101_20211231.rds')
 
 # for a specific WR number
 # e.g, 10 PCs
@@ -343,5 +339,5 @@ print(paste("-- finishing: ",num.states))
 #saveRDS(lst.WRs.sNHMMs.states,
 #        file = paste0("/home/fs01/nn289/WRs.large.ensemble_NHMMs/myOutput/lst.long.",number.years.long2,".yrs.WRs.sNHMMs.",num.states,".states.",num.iteration.hmms,".iter_v3.rds"))
 saveRDS(lst.WRs.sNHMMs.states,
-        file = paste0("/home/fs01/nn289/WRs.large.ensemble_NHMMs/myOutput/lst.long.",number.years.long2,".yrs.WRs.sNHMMs.",num.states,".states.",num.iteration.hmms,".iter_long.CA.WshdStd.rds"))
+        file = paste0("out-lst.long.",number.years.long2,".yrs.WRs.sNHMMs.",num.states,".states.",num.iteration.hmms,".iter_long.CA.WshdStd.rds"))
 
