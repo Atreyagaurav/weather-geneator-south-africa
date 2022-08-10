@@ -68,6 +68,8 @@ modHMMs <- depmix(list(PC1~1,PC2~1,PC3~1, PC4~1, PC5~1, PC6~1, PC7~1, PC8~1,
                   ntimes =  nrow(synoptic.pcs),
                   data = data.frame(synoptic.pcs))
 fit.modHMMs.depmix <- fit(modHMMs)
+
+rm(modHMMs)
 ## synoptic.state.assignments <- posterior(fit.modHMMs.depmix)$state
 ## state sequence (using the Viterbi algorithm)
 ## weather.state.assignments <- synoptic.state.assignments[dates.synoptic%in%dates.weather]
@@ -81,6 +83,9 @@ hhmod <- fit.modHMMs.depmix
 hhpars <- c(unlist(getpars(hhmod)))
 hhconMat <- hhmod@conMat
 init.pars <- list()
+
+rm(fit.modHMMs.depmix)
+
 init.pars[['transition']] <- lapply(hhmod@transition,
                                     function(x) x@parameters$coefficients)
 init.pars[['prior']]  <- hhmod@prior@parameters$coefficients #  prob.kmeans.list[[p]]  #
@@ -252,6 +257,9 @@ mod <- makeDepmix(response=my.response.models,
                   ntimes= nrow(my.synoptic.pcs),
                   homogeneous=FALSE)
 
+rm(my.response.models)
+gc()
+
 ## Parameter Estimation : ----------------------------
 
 ## NOTE: this one also takes a reasonable amount of time. The CPU use sometimes
@@ -269,7 +277,7 @@ for(j in 1:10){
     ## this takes a serious amount of time. Each itiration takes time and the
     ## number of iteration to converse is also high Single run with j=1 took
     ## 266 iteration to converse, Time taken was in a range of an hour.
-    fmod.depmix <- fit(mod,emc = em.control(random = FALSE),
+    fmod.depmix <- fit(mod, emc = em.control(random = FALSE),
                        verbose = FALSE) #conrows = conr.nh)  # )#
     ##
     tmp.mod.list[[j]] <-  fmod.depmix
@@ -277,6 +285,9 @@ for(j in 1:10){
     rm(fmod.depmix)
     ##
 }
+
+## Removed mod variable d/t high memory footprint, it doesn't seem to be used after this.
+rm(mod)
 
 ## check the convergence message here before selecting the model
 all.msgs <- sapply(tmp.mod.list, function(x) {
@@ -331,8 +342,11 @@ mod.num <- which.min(logLike.list)
 ## NOTE: So basically taking the one with minimum value here. Hence only repeated when all were not converged.
 fmod.depmix <- tmp.mod.list[[mod.num]]
 
-init.seed <- mod.num*1991
 
+rm(tmp.mod.list) # large memory footprint
+gc()
+
+init.seed <- mod.num*1991
 
 ## -------------------------------
 prob.state <- forwardbackward(fmod.depmix)$gamma
@@ -349,10 +363,8 @@ delta.probs <- posterior(fmod.depmix,type='viterbi') %>% dplyr::select(-state)
 ## Started 15:42 ended at 15:49. RAM use was really high, but cpu usage was low. so can look into it.
 for (it.cnt in 1:num.iteration.hmms) {
     sim.fmod <- depmixS4::simulate(fmod.depmix,nsim = my.num.sim, seed = it.cnt)
-
-    sim.seq.state <- sim.fmod@states # different from viterbi sequence
-
-    matrix.hmms.seq.states[,it.cnt] <- sim.seq.state
+    matrix.hmms.seq.states[,it.cnt] <- sim.fmod@states # different from viterbi sequence
+    rm(sim.fmod)                   # has large memory footprint
 
     prct.done <- round(it.cnt/num.iteration.hmms*100, digits = 2)
     if(prct.done%%5 == 0) {
@@ -379,5 +391,3 @@ saveRDS(lst.WRs.sNHMMs.states,
         file = paste0("out-lst.long.", number.years.long2,
                       ".yrs.WRs.sNHMMs.", num.states, ".states.",
                       num.iteration.hmms, ".iter_long.CA.WshdStd.rds"))
-
-rm(c("matrix.hmms.seq.states"))
