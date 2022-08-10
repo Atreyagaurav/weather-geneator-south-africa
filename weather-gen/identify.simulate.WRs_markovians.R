@@ -13,7 +13,8 @@ library(parallel)
 
 ## 1#
 ## // Load processed 500mb-GPH hgt region data and dates
-hgt.synoptic.region <- readRDS(file='hgt.500.Pacific.NorthAmer.synoptic.region_19480101_20211231.rds')
+hgt.synoptic.region <- readRDS(
+    file='hgt.500.Pacific.NorthAmer.synoptic.region_19480101_20211231.rds')
 
 ## for a specific WR number
 ## e.g, 10 PCs
@@ -26,7 +27,8 @@ dates.weather <- seq(as.Date(start_date),as.Date(end_date), by="days")
 
 start_date_synoptic <- "1948-01-01"
 end_date_synoptic <- "2021-12-31"
-dates.synoptic <- seq(as.Date(start_date_synoptic),as.Date(end_date_synoptic), by="days")
+dates.synoptic <- seq(as.Date(start_date_synoptic),as.Date(end_date_synoptic),
+                      by="days")
 
 identical.dates.idx <- dates.synoptic%in%dates.weather
 hgt.synoptic.region <- hgt.synoptic.region[identical.dates.idx,]
@@ -34,7 +36,8 @@ hgt.synoptic.region <- hgt.synoptic.region[identical.dates.idx,]
 
 ## 2#
 ## / Use PCA beforehand
-hgt.synoptic.region.pca <- prcomp(hgt.synoptic.region, center = TRUE, scale = TRUE)
+hgt.synoptic.region.pca <- prcomp(hgt.synoptic.region,
+                                  center = TRUE, scale = TRUE)
 num_eofs <- 10
 synoptic.pcs <- hgt.synoptic.region.pca$x[,1:num_eofs]
 
@@ -44,8 +47,14 @@ synoptic.pcs <- hgt.synoptic.region.pca$x[,1:num_eofs]
 ## for a specific WR number
 num.states <- 13 # WRs number
 number.years.long <- 1000 # e.g., 1000 years; 2000 years, etc
-my.num.sim <- ceiling(number.years.long/length(unique(format(dates.synoptic[identical.dates.idx],'%Y')))) # number of chunks of historical periods; e.g., 1 is one set of simulation equal to the historical
-number.years.long2 <- my.num.sim*length(unique(format(dates.synoptic[identical.dates.idx],'%Y')))
+
+## number of chunks of historical periods; e.g., 1 is one set of
+## simulation equal to the historical
+my.num.sim <- ceiling(number.years.long/
+                      length(unique(format(
+                          dates.synoptic[identical.dates.idx],'%Y'))))
+number.years.long2 <- my.num.sim*
+    length(unique(format(dates.synoptic[identical.dates.idx],'%Y')))
 num.iteration.hmms <- 5 # number of iteration to simulate WRs
 lst.WRs.sNHMMs.states <- list()
 ## HMMs outputs
@@ -53,15 +62,21 @@ lst.WRs.sNHMMs.states <- list()
 modHMMs <- depmix(list(PC1~1,PC2~1,PC3~1, PC4~1, PC5~1, PC6~1, PC7~1, PC8~1,
                        PC9~1, PC10~1),
                   nstates = num.states,
-                  family=list(gaussian(),gaussian(),gaussian(),gaussian(),gaussian(),gaussian(),gaussian(),gaussian(),
+                  family=list(gaussian(),gaussian(),gaussian(),gaussian(),
+                              gaussian(),gaussian(),gaussian(),gaussian(),
                               gaussian(),gaussian()),
                   ntimes =  nrow(synoptic.pcs),
                   data = data.frame(synoptic.pcs))
 fit.modHMMs.depmix <- fit(modHMMs)
-## synoptic.state.assignments <- posterior(fit.modHMMs.depmix)$state # state sequence (using the Viterbi algorithm) #
-## weather.state.assignments <- synoptic.state.assignments[dates.synoptic%in%dates.weather]   #state assignments associated with the local weather variables (in case they span a different time period)
+## synoptic.state.assignments <- posterior(fit.modHMMs.depmix)$state
+## state sequence (using the Viterbi algorithm)
+## weather.state.assignments <- synoptic.state.assignments[dates.synoptic%in%dates.weather]
+## state assignments associated with the local weather variables (in case they span a different time period)
 
 ## s-NHMMs run
+
+## NOTE: this one takes a resonably long time (few minutes), takes a chunk of
+## ram and a chunk of CPU too.
 hhmod <- fit.modHMMs.depmix
 hhpars <- c(unlist(getpars(hhmod)))
 hhconMat <- hhmod@conMat
@@ -206,16 +221,26 @@ if(is.null(init.pars)) {
 } else {
     for(i in 1:my.nstates){
         my.response.models[[i]] <- list(
-            GLMresponse(formula = PC1~1,data = data.frame(my.synoptic.pcs ),family = gaussian(),pstart = init.pars$response[[i]][[1]]),
-            GLMresponse(formula = PC2~1,data = data.frame(my.synoptic.pcs ),family = gaussian(),pstart = init.pars$response[[i]][[2]]),
-            GLMresponse(formula = PC3~1,data = data.frame(my.synoptic.pcs ),family = gaussian(),pstart = init.pars$response[[i]][[3]]),
-            GLMresponse(formula = PC4~1,data = data.frame(my.synoptic.pcs ),family = gaussian(),pstart = init.pars$response[[i]][[4]]),
-            GLMresponse(formula = PC5~1,data = data.frame(my.synoptic.pcs ),family = gaussian(),pstart = init.pars$response[[i]][[5]]),
-            GLMresponse(formula = PC6~1,data = data.frame(my.synoptic.pcs ),family = gaussian(),pstart = init.pars$response[[i]][[6]]),
-            GLMresponse(formula = PC7~1,data = data.frame(my.synoptic.pcs ),family = gaussian(),pstart = init.pars$response[[i]][[7]]),
-            GLMresponse(formula = PC8~1,data = data.frame(my.synoptic.pcs ),family = gaussian(),pstart = init.pars$response[[i]][[8]]),
-            GLMresponse(formula = PC9~1,data = data.frame(my.synoptic.pcs ),family = gaussian(),pstart = init.pars$response[[i]][[9]]),
-            GLMresponse(formula = PC10~1,data = data.frame(my.synoptic.pcs ),family = gaussian(),pstart = init.pars$response[[i]][[10]])
+            GLMresponse(formula = PC1~1,data = data.frame(my.synoptic.pcs ),
+                        family = gaussian(),pstart = init.pars$response[[i]][[1]]),
+            GLMresponse(formula = PC2~1,data = data.frame(my.synoptic.pcs ),
+                        family = gaussian(),pstart = init.pars$response[[i]][[2]]),
+            GLMresponse(formula = PC3~1,data = data.frame(my.synoptic.pcs ),
+                        family = gaussian(),pstart = init.pars$response[[i]][[3]]),
+            GLMresponse(formula = PC4~1,data = data.frame(my.synoptic.pcs ),
+                        family = gaussian(),pstart = init.pars$response[[i]][[4]]),
+            GLMresponse(formula = PC5~1,data = data.frame(my.synoptic.pcs ),
+                        family = gaussian(),pstart = init.pars$response[[i]][[5]]),
+            GLMresponse(formula = PC6~1,data = data.frame(my.synoptic.pcs ),
+                        family = gaussian(),pstart = init.pars$response[[i]][[6]]),
+            GLMresponse(formula = PC7~1,data = data.frame(my.synoptic.pcs ),
+                        family = gaussian(),pstart = init.pars$response[[i]][[7]]),
+            GLMresponse(formula = PC8~1,data = data.frame(my.synoptic.pcs ),
+                        family = gaussian(),pstart = init.pars$response[[i]][[8]]),
+            GLMresponse(formula = PC9~1,data = data.frame(my.synoptic.pcs ),
+                        family = gaussian(),pstart = init.pars$response[[i]][[9]]),
+            GLMresponse(formula = PC10~1,data = data.frame(my.synoptic.pcs ),
+                        family = gaussian(),pstart = init.pars$response[[i]][[10]])
         )
     }
 }
@@ -228,11 +253,22 @@ mod <- makeDepmix(response=my.response.models,
                   homogeneous=FALSE)
 
 ## Parameter Estimation : ----------------------------
+
+## NOTE: this one also takes a reasonable amount of time. The CPU use sometimes
+## spikes but not much around other times, so it seems to be time intensive
+## rather than resource intensive. We can probably do something on this.
+
+## NOTE: The pattern was similar to the CPU usage from yesterday when I was using the funnction, so this seems to be the main one that takes time initially. Will definitely have to do something. Considerably long time.
+
+
 ## if(is.null(init.pars)){
 tmp.mod.list <- list()
 for(j in 1:10){
     ##
     set.seed(j*950)
+    ## this takes a serious amount of time. Each itiration takes time and the
+    ## number of iteration to converse is also high Single run with j=1 took
+    ## 266 iteration to converse, Time taken was in a range of an hour.
     fmod.depmix <- fit(mod,emc = em.control(random = FALSE),
                        verbose = FALSE) #conrows = conr.nh)  # )#
     ##
@@ -258,6 +294,7 @@ index.converged <- stringr::str_match(all.msgs, "Log likelihood converged")
 if(all(is.na(index.converged))) {
     print("EM did not converge with inital values. Recalculating with random starting values")
 
+    ## TODO Make this a function, DRY principle (Do not repeat yourself)
     tmp.mod.list <- list()
     for(j in 1:10) {
         ##
@@ -291,7 +328,7 @@ if(all(is.na(index.converged))) {
 logLike.list[which(is.na(index.converged))] <- 99999
 
 mod.num <- which.min(logLike.list)
-##
+## NOTE: So basically taking the one with minimum value here. Hence only repeated when all were not converged.
 fmod.depmix <- tmp.mod.list[[mod.num]]
 
 init.seed <- mod.num*1991
@@ -309,6 +346,7 @@ delta.probs <- posterior(fmod.depmix,type='viterbi') %>% dplyr::select(-state)
 ## # ---------------------------------------------------------- #
 ## ------ Simulation ------------------------------------------ #
 ## # ---------------------------------------------------------- #
+## Started 15:42 ended at 15:49. RAM use was really high, but cpu usage was low. so can look into it.
 for (it.cnt in 1:num.iteration.hmms) {
     sim.fmod <- depmixS4::simulate(fmod.depmix,nsim = my.num.sim, seed = it.cnt)
 
@@ -329,13 +367,17 @@ lst.WRs.sNHMMs.states <- list(matrix.hmms.seq.states=matrix.hmms.seq.states,
                               viterbi.seq = seq.state,
                               init.seed = init.seed)
 
+
+
+## The ram is 80% full with R taking >50% of it at this point in code.
+## gc seems to have only decreased it by around 10%, so it's stil high.
 gc()
 print(paste("-- finishing: ", num.states))
 
 
-## saveRDS(lst.WRs.sNHMMs.states,
-## file = paste0("/home/fs01/nn289/WRs.large.ensemble_NHMMs/myOutput/lst.long.",number.years.long2,".yrs.WRs.sNHMMs.",num.states,".states.",num.iteration.hmms,".iter_v3.rds"))
 saveRDS(lst.WRs.sNHMMs.states,
         file = paste0("out-lst.long.", number.years.long2,
                       ".yrs.WRs.sNHMMs.", num.states, ".states.",
                       num.iteration.hmms, ".iter_long.CA.WshdStd.rds"))
+
+rm(c("matrix.hmms.seq.states"))
