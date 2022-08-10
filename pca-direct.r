@@ -25,6 +25,7 @@ table_wide <- table_wide
 head(table_wide, 1)
 
 pca <- prcomp(table_wide, rank = 50, scale. = T)
+
 summary(pca)
 
 table_appx <- t(t(pca$x %*% t(pca$rotation)) * pca$scale + pca$center)
@@ -42,7 +43,7 @@ kmeans_centers = km$centers
 kmeans_revert <- t(t(kmeans_centers %*% t(pca$rotation)) * pca$scale + pca$center)
 
 
-plot_raster <- function(df) {
+get_raster <- function(df) {
     df <- as.data.frame(df)
     df$lat <- 0
     df$lon <- 0
@@ -59,18 +60,34 @@ plot_raster <- function(df) {
     xyz <- subset(df, select = c("lon", "lat", "geopotential_ht"))
 
     dfr <- rasterFromXYZ(xyz = xyz)
-    plot(dfr)
+    return (dfr)
 }
 
-N = 4
-means_N <- data.frame(lonlat = names(kmeans_revert[N,]), geopotential_ht=as.numeric(kmeans_revert[N,]))
-plot_raster(means_N)
 
-day=20
-means_N <- data.frame(lonlat = names(table_appx[day,]), geopotential_ht=as.numeric(table_appx[day,]))
-plot_raster(means_N)
+for (N in 1:50){
+    pca_X <- data.frame(lonlat = names(pca$x[N,]), geopotential_ht=as.numeric(pca$x[N,]))
+    dfr1 <- get_raster(pca_X)
+    writeRaster(dfr1, sprintf("./rasters/pca/component-%02d.tif", N))
+    ## plot(dfr1)
+}
 
-day=20
-means_N <- data.frame(lonlat = names(table_wide[day,]), geopotential_ht=as.numeric(table_wide[day,]))
-plot_raster(means_N)
 
+for (N in 1:8){
+    means_N <- data.frame(lonlat = names(kmeans_revert[N,]), geopotential_ht=as.numeric(kmeans_revert[N,]))
+    dfr1 <- get_raster(means_N)
+    writeRaster(dfr1, sprintf("./rasters/kmeans/cluster-%d.tif", N))
+    ## plot(dfr1)
+}
+
+
+for (day in 1:20) {
+    original <- data.frame(lonlat = names(table_wide[day,]), geopotential_ht=as.numeric(table_wide[day,]))
+    dfr1 <- get_raster(original)
+    writeRaster(dfr1, sprintf("./rasters/original/day-%02d.tif", day))
+}
+
+for (day in 1:20) {
+    recreated <- data.frame(lonlat = names(table_appx[day,]), geopotential_ht=as.numeric(table_appx[day,]))
+    dfr1 <- get_raster(recreated)
+    writeRaster(dfr1, sprintf("./rasters/recreated/day-%02d.tif", day))
+}
