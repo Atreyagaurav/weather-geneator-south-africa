@@ -47,18 +47,18 @@ get_fmod.depmix <- function(model) {
 ## 1#
 ## // Load processed 500mb-GPH hgt region data and dates
 hgt.synoptic.region <- readRDS(
-    file='hgt.500.Pacific.NorthAmer.synoptic.region_19480101_20211231.rds')
+    file='weather-gen/hgt_SA.rds')
 
 ## for a specific WR number
 ## e.g, 10 PCs
 ## start_date="1948-01-01"; end_date="2021-12-31" # for TID/HFAM
-start_date <- "1950-01-01"
-end_date <- "2013-12-31" # for CA Watershed Study
+start_date <- "1979-01-01"
+end_date <- "2021-12-31" # for CA Watershed Study
 first.date.weather <- as.Date(start_date)
 last.date.weather <- as.Date(end_date)
 dates.weather <- seq(as.Date(start_date),as.Date(end_date), by="days")
 
-start_date_synoptic <- "1948-01-01"
+start_date_synoptic <- "1979-01-01"
 end_date_synoptic <- "2021-12-31"
 dates.synoptic <- seq(as.Date(start_date_synoptic),as.Date(end_date_synoptic),
                       by="days")
@@ -307,6 +307,7 @@ gc()
 
 
 fmod.depmix <- get_fmod.depmix(mod)
+
 ## Removed mod variable d/t high memory footprint, it doesn't seem to be used after this.
 rm(mod)
 gc()
@@ -355,6 +356,6 @@ print(paste("-- finishing: ", num.states))
 
 
 saveRDS(lst.WRs.sNHMMs.states,
-        file = paste0("out-lst.long.", number.years.long2,
+        file = paste0("weather-gen/out-sf-lst.long.", number.years.long2,
                       ".yrs.WRs.sNHMMs.", num.states, ".states.",
                       num.iteration.hmms, ".iter_long.CA.WshdStd.rds"))
