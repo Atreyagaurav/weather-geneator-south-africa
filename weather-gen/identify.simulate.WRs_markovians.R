@@ -11,6 +11,39 @@ library(biwavelet)
 library(parallel)
 
 
+MAX_ITERATION <- 20
+
+get_fmod.depmix <- function(model) {
+    ## NOTE: this takes a serious amount of time. Each itiration takes time and
+    ## the number of iteration to converse is also high Single run with j=1
+    ## took 266 iteration to converse, Time taken was in a range of an hour.
+    for(j in 1:MAX_ITERATION) {
+        ##
+        set.seed(j*950)
+
+        if ((j %% 2) == 0) {
+            do.random <- TRUE
+        } else {
+            do.random <- FALSE
+        }
+
+        ## FIXME: Reduce Time by increasing CPU use?
+        fmod.depmix <- fit(mod,emc = em.control(random = do.random),
+                           verbose = TRUE) #conrows = conr.nh)  # )#
+
+        print(sprintf("Initial run: %d", j))
+        if(class(fmod.depmix) == "depmix.fitted") {
+            if (!is.na(stringr::str_match(fmod.depmix@message, "Log likelihood converged"))) {
+                print("Solution Converged.")
+                return(fmod.depmix)
+            }
+        }
+        ##
+    }
+    print("Solution Not Converged.")
+    return(NULL)
+}
+
 ## 1#
 ## // Load processed 500mb-GPH hgt region data and dates
 hgt.synoptic.region <- readRDS(
@@ -67,6 +100,7 @@ modHMMs <- depmix(list(PC1~1,PC2~1,PC3~1, PC4~1, PC5~1, PC6~1, PC7~1, PC8~1,
                               gaussian(),gaussian()),
                   ntimes =  nrow(synoptic.pcs),
                   data = data.frame(synoptic.pcs))
+## this one is also time consuming. Already takes a good chunk of CPU.
 fit.modHMMs.depmix <- fit(modHMMs)
 
 rm(modHMMs)
@@ -85,6 +119,7 @@ hhconMat <- hhmod@conMat
 init.pars <- list()
 
 rm(fit.modHMMs.depmix)
+gc()
 
 init.pars[['transition']] <- lapply(hhmod@transition,
                                     function(x) x@parameters$coefficients)
@@ -266,87 +301,17 @@ gc()
 ## spikes but not much around other times, so it seems to be time intensive
 ## rather than resource intensive. We can probably do something on this.
 
-## NOTE: The pattern was similar to the CPU usage from yesterday when I was using the funnction, so this seems to be the main one that takes time initially. Will definitely have to do something. Considerably long time.
+## NOTE: The pattern was similar to the CPU usage from yesterday when I was
+## using the funnction, so this seems to be the main one that takes time
+## initially. Will definitely have to do something. Considerably long time.
 
 
-## if(is.null(init.pars)){
-tmp.mod.list <- list()
-for(j in 1:10){
-    ##
-    set.seed(j*950)
-    ## this takes a serious amount of time. Each itiration takes time and the
-    ## number of iteration to converse is also high Single run with j=1 took
-    ## 266 iteration to converse, Time taken was in a range of an hour.
-    fmod.depmix <- fit(mod, emc = em.control(random = FALSE),
-                       verbose = FALSE) #conrows = conr.nh)  # )#
-    ##
-    tmp.mod.list[[j]] <-  fmod.depmix
-    print(paste("Initial run",j))
-    rm(fmod.depmix)
-    ##
-}
-
+fmod.depmix <- get_fmod.depmix(mod)
 ## Removed mod variable d/t high memory footprint, it doesn't seem to be used after this.
 rm(mod)
-
-## check the convergence message here before selecting the model
-all.msgs <- sapply(tmp.mod.list, function(x) {
-    if(class(x) == "depmix.fitted") {
-        return(x@message)
-    } else {
-        return(c())
-    }
-})
-
-logLike.list <- as.numeric(unlist(lapply(tmp.mod.list,logLik)))
-
-index.converged <- stringr::str_match(all.msgs, "Log likelihood converged")
-
-if(all(is.na(index.converged))) {
-    print("EM did not converge with inital values. Recalculating with random starting values")
-
-    ## TODO Make this a function, DRY principle (Do not repeat yourself)
-    tmp.mod.list <- list()
-    for(j in 1:10) {
-        ##
-        set.seed(j*950)
-        fmod.depmix <- fit(mod,emc = em.control(random = TRUE),
-                           verbose = FALSE) #conrows = conr.nh)  # )#
-
-        tmp.mod.list[[j]] <-  fmod.depmix
-        print(paste("Initial run",j))
-        rm(fmod.depmix)
-        ##
-    }
-
-    all.msgs <- sapply(tmp.mod.list, function(x) {
-        if(class(x) == "depmix.fitted") {
-            return(x@message)
-        }else {
-            return(c())
-        }
-    })
-
-    logLike.list <- as.numeric(unlist(lapply(tmp.mod.list,logLik)))
-
-    index.converged <- stringr::str_match(all.msgs, "Log likelihood converged")
-
-} else {
-    print("Comparing Loglikelihood...")
-}
-
-
-logLike.list[which(is.na(index.converged))] <- 99999
-
-mod.num <- which.min(logLike.list)
-## NOTE: So basically taking the one with minimum value here. Hence only repeated when all were not converged.
-fmod.depmix <- tmp.mod.list[[mod.num]]
-
-
-rm(tmp.mod.list) # large memory footprint
 gc()
 
-init.seed <- mod.num*1991
+init.seed <- 1991
 
 ## -------------------------------
 prob.state <- forwardbackward(fmod.depmix)$gamma
@@ -360,7 +325,9 @@ delta.probs <- posterior(fmod.depmix,type='viterbi') %>% dplyr::select(-state)
 ## # ---------------------------------------------------------- #
 ## ------ Simulation ------------------------------------------ #
 ## # ---------------------------------------------------------- #
-## Started 15:42 ended at 15:49. RAM use was really high, but cpu usage was low. so can look into it.
+
+## Started 15:42 ended at 15:49. RAM use was really high, but cpu usage was
+## low. so can look into it.
 for (it.cnt in 1:num.iteration.hmms) {
     sim.fmod <- depmixS4::simulate(fmod.depmix,nsim = my.num.sim, seed = it.cnt)
     matrix.hmms.seq.states[,it.cnt] <- sim.fmod@states # different from viterbi sequence
