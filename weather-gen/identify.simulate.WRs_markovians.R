@@ -1,8 +1,12 @@
 rm(list=ls())
 library(depmixS4) # HMMs fit
+library(dplyr)
+
+## code runs successfully without the following libraries but there are some
+## functions overwritten due to them
 library(rapportools)
 library(markovchain)
-library(rebmix)
+## library(rebmix) # couldn't install
 library(moments)
 library(MASS)
 library(abind)
@@ -27,18 +31,19 @@ get_fmod.depmix <- function(model) {
             do.random <- FALSE
         }
 
+        print(sprintf("Initial run: %d", j))
         ## FIXME: Reduce Time by increasing CPU use?
         fmod.depmix <- fit(mod,emc = em.control(random = do.random),
                            verbose = TRUE) #conrows = conr.nh)  # )#
 
-        print(sprintf("Initial run: %d", j))
         if(class(fmod.depmix) == "depmix.fitted") {
-            if (!is.na(stringr::str_match(fmod.depmix@message, "Log likelihood converged"))) {
+            if (!is.na(stringr::str_match(fmod.depmix@message,
+                                          "Log likelihood converged"))) {
                 print("Solution Converged.")
                 return(fmod.depmix)
             }
         }
-        ##
+        print("Solution Not Converged. Retrying...")
     }
     print("Solution Not Converged.")
     return(NULL)
@@ -52,18 +57,27 @@ hgt.synoptic.region <- readRDS(
 ## for a specific WR number
 ## e.g, 10 PCs
 ## start_date="1948-01-01"; end_date="2021-12-31" # for TID/HFAM
-start_date <- "1979-01-01"
-end_date <- "2021-12-31" # for CA Watershed Study
-first.date.weather <- as.Date(start_date)
-last.date.weather <- as.Date(end_date)
-dates.weather <- seq(as.Date(start_date),as.Date(end_date), by="days")
+start_date <- as.Date("1979-01-01")
+end_date <- as.Date("2021-12-31") # for CA Watershed Study
+first.date.weather <- start_date
+last.date.weather <- end_date
 
-start_date_synoptic <- "1979-01-01"
-end_date_synoptic <- "2021-12-31"
-dates.synoptic <- seq(as.Date(start_date_synoptic),as.Date(end_date_synoptic),
-                      by="days")
+dates.weather <- seq(start_date, end_date, by="days")
 
-identical.dates.idx <- dates.synoptic%in%dates.weather
+start_date_synoptic <- as.Date("1979-01-01")
+end_date_synoptic <- as.Date("2021-12-31")
+dates.synoptic <- seq(start_date_synoptic, end_date_synoptic, by="days")
+
+common.start <- if (start_date > start_date_synoptic) start_date else start_date_synoptic
+common.end <- if (end_date > end_date_synoptic) end_date else end_date_synoptic
+stopifnot(common.start < common.end)
+
+common.dates <- seq(common.start, common.end, by="days")
+common.years.count <- (as.numeric(format(common.end, "%Y")) -
+                       as.numeric(format(common.start, "%Y")))
+
+## overwrites the variable by only considering the common range
+identical.dates.idx <- dates.synoptic %in% dates.weather
 hgt.synoptic.region <- hgt.synoptic.region[identical.dates.idx,]
 
 
@@ -83,25 +97,23 @@ number.years.long <- 1000 # e.g., 1000 years; 2000 years, etc
 
 ## number of chunks of historical periods; e.g., 1 is one set of
 ## simulation equal to the historical
-my.num.sim <- ceiling(number.years.long/
-                      length(unique(format(
-                          dates.synoptic[identical.dates.idx],'%Y'))))
-number.years.long2 <- my.num.sim*
-    length(unique(format(dates.synoptic[identical.dates.idx],'%Y')))
+my.num.sim <- ceiling(number.years.long / common.years.count)
+number.years.long2 <- my.num.sim * common.years.count 
 num.iteration.hmms <- 5 # number of iteration to simulate WRs
 lst.WRs.sNHMMs.states <- list()
 ## HMMs outputs
 ## e.g, 10 PCs
-modHMMs <- depmix(list(PC1~1,PC2~1,PC3~1, PC4~1, PC5~1, PC6~1, PC7~1, PC8~1,
-                       PC9~1, PC10~1),
-                  nstates = num.states,
-                  family=list(gaussian(),gaussian(),gaussian(),gaussian(),
-                              gaussian(),gaussian(),gaussian(),gaussian(),
-                              gaussian(),gaussian()),
-                  ntimes =  nrow(synoptic.pcs),
-                  data = data.frame(synoptic.pcs))
+modHMMs <- depmix(
+    lapply(1:num_eofs, function(x) {
+        return(as.formula(sprintf("PC%d ~ 1", x)))
+    }),
+    nstates = num.states,
+    family = rep(list(gaussian()), num_eofs),
+    ntimes =  nrow(synoptic.pcs),
+    data = data.frame(synoptic.pcs))
+
 ## this one is also time consuming. Already takes a good chunk of CPU.
-fit.modHMMs.depmix <- fit(modHMMs)
+fit.modHMMs.depmix <- fit(modHMMs, verbose=TRUE)
 
 rm(modHMMs)
 ## synoptic.state.assignments <- posterior(fit.modHMMs.depmix)$state
@@ -245,43 +257,24 @@ if(is.null(init.pars)) {
 my.response.models <- list()
 if(is.null(init.pars)) {
     for(i in 1:my.nstates) {
-        my.response.models[[i]] <- list(
-            GLMresponse(formula = PC1~1,data = data.frame(my.synoptic.pcs ),family = gaussian()),
-            GLMresponse(formula = PC2~1,data = data.frame(my.synoptic.pcs ),family = gaussian()),
-            GLMresponse(formula = PC3~1,data = data.frame(my.synoptic.pcs ),family = gaussian()),
-            GLMresponse(formula = PC4~1,data = data.frame(my.synoptic.pcs ),family = gaussian()),
-            GLMresponse(formula = PC5~1,data = data.frame(my.synoptic.pcs ),family = gaussian()),
-            GLMresponse(formula = PC6~1,data = data.frame(my.synoptic.pcs ),family = gaussian()),
-            GLMresponse(formula = PC7~1,data = data.frame(my.synoptic.pcs ),family = gaussian()),
-            GLMresponse(formula = PC8~1,data = data.frame(my.synoptic.pcs ),family = gaussian()),
-            GLMresponse(formula = PC9~1,data = data.frame(my.synoptic.pcs ),family = gaussian()),
-            GLMresponse(formula = PC10~1,data = data.frame(my.synoptic.pcs ),family = gaussian())
-        )
+        my.response.models[[i]] <- lapply(1:num_eofs, function(x) {
+            return(
+                GLMresponse(formula = as.formula(sprintf("PC%d ~ 1", x)),
+                            data = data.frame(my.synoptic.pcs ),
+                            family = gaussian())
+                )
+        })
     }
 } else {
     for(i in 1:my.nstates){
-        my.response.models[[i]] <- list(
-            GLMresponse(formula = PC1~1,data = data.frame(my.synoptic.pcs ),
-                        family = gaussian(),pstart = init.pars$response[[i]][[1]]),
-            GLMresponse(formula = PC2~1,data = data.frame(my.synoptic.pcs ),
-                        family = gaussian(),pstart = init.pars$response[[i]][[2]]),
-            GLMresponse(formula = PC3~1,data = data.frame(my.synoptic.pcs ),
-                        family = gaussian(),pstart = init.pars$response[[i]][[3]]),
-            GLMresponse(formula = PC4~1,data = data.frame(my.synoptic.pcs ),
-                        family = gaussian(),pstart = init.pars$response[[i]][[4]]),
-            GLMresponse(formula = PC5~1,data = data.frame(my.synoptic.pcs ),
-                        family = gaussian(),pstart = init.pars$response[[i]][[5]]),
-            GLMresponse(formula = PC6~1,data = data.frame(my.synoptic.pcs ),
-                        family = gaussian(),pstart = init.pars$response[[i]][[6]]),
-            GLMresponse(formula = PC7~1,data = data.frame(my.synoptic.pcs ),
-                        family = gaussian(),pstart = init.pars$response[[i]][[7]]),
-            GLMresponse(formula = PC8~1,data = data.frame(my.synoptic.pcs ),
-                        family = gaussian(),pstart = init.pars$response[[i]][[8]]),
-            GLMresponse(formula = PC9~1,data = data.frame(my.synoptic.pcs ),
-                        family = gaussian(),pstart = init.pars$response[[i]][[9]]),
-            GLMresponse(formula = PC10~1,data = data.frame(my.synoptic.pcs ),
-                        family = gaussian(),pstart = init.pars$response[[i]][[10]])
-        )
+        my.response.models[[i]] <- lapply(1:num_eofs, function(x) {
+            return(
+                GLMresponse(formula = as.formula(sprintf("PC%d ~ 1", x)),
+                            data = data.frame(my.synoptic.pcs ),
+                            family = gaussian(),
+                            pstart = init.pars$response[[i]][[x]])
+                )
+        })
     }
 }
 
@@ -327,6 +320,7 @@ delta.probs <- posterior(fmod.depmix,type='viterbi') %>% dplyr::select(-state)
 ## ------ Simulation ------------------------------------------ #
 ## # ---------------------------------------------------------- #
 
+
 ## Started 15:42 ended at 15:49. RAM use was really high, but cpu usage was
 ## low. so can look into it.
 for (it.cnt in 1:num.iteration.hmms) {
@@ -356,6 +350,6 @@ print(paste("-- finishing: ", num.states))
 
 
 saveRDS(lst.WRs.sNHMMs.states,
-        file = paste0("weather-gen/out-sf-lst.long.", number.years.long2,
+        file = paste0("weather-gen/out-sf-3-lst.long.", number.years.long2,
                       ".yrs.WRs.sNHMMs.", num.states, ".states.",
                       num.iteration.hmms, ".iter_long.CA.WshdStd.rds"))
