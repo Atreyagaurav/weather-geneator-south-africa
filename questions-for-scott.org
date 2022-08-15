@@ -1,0 +1,213 @@
+#+latex_class:mynotes
+#+title: Question about HMMS Script
+#+author: Gaurav Atreya, Garima Mandavya
+
+* Few notes about this document
+
+- The comments are on the script file ~identify.simulate.WRs_markovians.R~ provided to us,
+- The line numbers in the code block corresponds to the line number in the file that we received,
+
+* Are all libraries important?
+We were unable to install ~rebmix~ and ~markovchain~ but the code still runs, is there anything important that these library do?
+
+# Although not super important I'd appreciate being able to weed out the libraries that aren't being used as it can take some time to install them in new machine or when R is updated that could be avoided. I wasn't able to find a tool that can automatically detect unused libraries in R like in other languages and ones that do depend on this declaration at the beginning.
+
+#+name: original-code
+#+begin_src bash :exports results :results output verbatim :wrap "src R :eval no" :var lines="2,11"
+sed -n "${lines}p" weather-gen/identify.simulate.WRs_markovians.org.R
+#+end_src
+
+#+attr_latex: :options firstnumber=2
+#+RESULTS[086a4983f1d9ed6fddcb88459ca4382fdb6cca13]: original-code
+#+begin_src R :eval no
+library(depmixS4) # HMMs fit
+library(rapportools)
+library(markovchain)
+library(rebmix)
+library(moments)
+library(MASS)
+library(abind)
+library(forecast)
+library(biwavelet)
+library(parallel)
+#+end_src
+
+
+
+* why loop 10 times?
+Why wasn't the loop ended once solution was converged. Considering the call to ~fit~ here seems to be one of the most computationally intensive work in this file. On close inspection we found you have run it 10 times, furthermore it was run 10 times again if a solution was not converged (it is brought up separately in another section).
+
+Any specific reason that it has to be run multiple times even when the solution already converged?
+
+#+name: 1-10-loop
+#+call: original-code("200,211")
+
+#+attr_latex: :options firstnumber=200
+#+RESULTS[927b135360585b7370c4989fd62ed140d4c8d9c6]: 1-10-loop
+#+begin_src R :eval no
+    tmp.mod.list <- list()
+    for(j in 1:10){ 
+      #
+      set.seed(j*950)
+      fmod.depmix <- fit(mod,emc = em.control(random = TRUE),
+                         verbose = F) #conrows = conr.nh)  # )#
+      
+      tmp.mod.list[[j]] <-  fmod.depmix
+      print(paste("Initial run",j))
+      rm(fmod.depmix)
+      #
+    }
+#+end_src
+
+* why minimum?
+
+# #+begin_quote
+# The log-likelihood value of a regression model is a way to measure the goodness of fit for a model. The higher the value of the log-likelihood, the better a model fits a dataset.
+# The log-likelihood value for a given model can range from negative infinity to positive infinity. The actual log-likelihood value for a given model is mostly meaningless, but it’s useful for comparing two or more models.
+# #+end_quote
+
+The log likelihood is negative in this case, according to our understanding maximum log likelihood means better fit. We noticed that you're using minimum instead of maximum is there any particular reasoning behind that? Maybe there should be ~abs~ there.
+
+#+name: taking-min
+#+call: original-code("230,234")
+
+#+attr_latex: :options firstnumber=230
+#+RESULTS[4d483f379e31e32b90247684fc20102791fb476c]: taking-min
+#+begin_src R :eval no
+  logLike.list[which(is.na(index.converged))] <- 99999
+  
+  mod.num <- which.min(logLike.list) 
+  # 
+  fmod.depmix <- tmp.mod.list[[mod.num]]
+#+end_src
+
+Here simply looking at it, looks like you ran the loop 10 times, filtered for converged solutions and chose the one with minimum ~logLik~, but looking at the output of ~fit~ when ~verbose=TRUE~ was used, we can see the ~logLik~ is in negative and increasing with further loop, and conversed in maximum value.
+
+Here is a sample output:
+#+begin_src text
+iteration 0 logLik: -727312.4 
+iteration 5 logLik: -713612.4 
+iteration 10 logLik: -706369.6 
+iteration 15 logLik: -701668
+...
+iteration 150 logLik: -697760.1 
+iteration 155 logLik: -697759.7 
+converged at iteration 160 with logLik: -697759.7   
+#+end_src
+
+* init seed at the end.
+The seed you have saved in the rds file is separate than the one used in the fmod.depmix calculation was that intentional? what was the use of saving the seed?
+
+#+name: saved-seed
+#+call: original-code("236,236")
+
+
+#+attr_latex: :options firstnumber=200
+#+RESULTS[847fbd6e9c6412aec5846c21e6abf81d756cbfcd]: saved-seed
+#+begin_src R :eval no
+  init.seed <- mod.num*1991 
+#+end_src
+
+It is being saved along with the simulation result and fit results. If this was supposed to be a record of seed that was used, it doesn't make sense considering the seed used in the fit function is different.
+
+
+#+name: used-seed-1
+#+call: original-code("94,97")
+
+
+#+attr_latex: :options firstnumber=94
+#+RESULTS[c12f87c40ea1f076fba522bceab484ef1f8afd53]: used-seed-1
+#+begin_src R :eval no
+    # initial transition parameters are provided 
+    for(i in 1:my.nstates){
+      set.seed(i*950)
+      par.cosT <- runif(my.nstates,0.01,0.9)
+#+end_src
+
+
+#+name: used-seed-2
+#+call: original-code("169,182")
+
+* Using ~random = TRUE~ on ~fmod.depmix~
+In the function, first the fit is tried with ~random = FALSE~ 10 times and then if not converged then with ~random = TRUE~ for 10 times. Is ~random = FALSE~ preferred due to some reason? 
+
+#+attr_latex: :options firstnumber=169
+#+RESULTS[de0ef88efdb14b0711fb0a7beed69d8cbcb46192]: used-seed-2
+#+begin_src R :eval no
+  # Parameter Estimation : ----------------------------
+  #if(is.null(init.pars)){
+  tmp.mod.list <- list()
+  for(j in 1:10){ 
+    #
+    set.seed(j*950)
+    fmod.depmix <- fit(mod,emc = em.control(random = FALSE),
+                       verbose = F) #conrows = conr.nh)  # )#
+    # 
+    tmp.mod.list[[j]] <-  fmod.depmix
+    print(paste("Initial run",j))
+    rm(fmod.depmix)
+    #
+  }
+#+end_src
+
+This next block is after checking if none of the 10 runs previously had converged.
+
+#+name: used-seed-3
+#+call: original-code("201,211")
+
+#+attr_latex: :options firstnumber=211
+#+RESULTS[975981a0d64c54979b3c8c5ff80724b47c0c607f]: used-seed-3
+#+begin_src R :eval no
+    for(j in 1:10){ 
+      #
+      set.seed(j*950)
+      fmod.depmix <- fit(mod,emc = em.control(random = TRUE),
+                         verbose = F) #conrows = conr.nh)  # )#
+      
+      tmp.mod.list[[j]] <-  fmod.depmix
+      print(paste("Initial run",j))
+      rm(fmod.depmix)
+      #
+    }
+#+end_src
+
+* How to get the values of clusters that it made
+The code seems to suggest that the hidden marcov chain was using ~13~ states for the simulation, is there any way to get their data to visualize it? For example the centers of the clusters' PC ordinates or original ordinates?
+
+#+name: clusters
+#+call: original-code("295,298")
+
+#+attr_latex: :options firstnumber=295
+#+RESULTS[e0509cc60c17f40c8c59093e9cc731fa690732b7]: clusters
+#+begin_src R :eval no
+#3#
+##/ HMMs runs followed by s-NHMMs
+# for a specific WR number
+num.states = 13 # WRs number
+#+end_src
+
+* The simulation is done by repetition on both row and column
+We might understand it better after we know where to use the output of this script but we're currently confused a bit on why the output dimension is lot more than input dimension. Looks like it was repeated ~16~ times time-wise in same simulation and the simulation was itself done ~5~ times.
+
+#+name: simulation
+#+call: original-code("248,262")
+
+#+attr_latex: :options firstnumber=248
+#+RESULTS[04d8d86270649da44765703f2827ad0b0b14ee7b]: simulation
+#+begin_src R :eval no
+  # # ---------------------------------------------------------- #
+  # ------ Simulation ------------------------------------------ #
+  # # ---------------------------------------------------------- #
+  for (it.cnt in 1:num.iteration.hmms)
+  {
+    sim.fmod <- depmixS4::simulate(fmod.depmix,nsim = my.num.sim, seed = it.cnt)
+    
+    sim.seq.state <- sim.fmod@states # different from viterbi sequence 
+    
+    matrix.hmms.seq.states[,it.cnt] <- sim.seq.state
+    
+    prct.done <- round(it.cnt/num.iteration.hmms*100, digits = 2)
+    if(prct.done%%5 == 0){print(paste("---finishing ",it.cnt,"out of",num.iteration.hmms," simulations -----:",prct.done,"%"))}
+  }
+  
+#+end_src
