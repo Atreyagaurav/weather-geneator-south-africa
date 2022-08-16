@@ -4,15 +4,15 @@ library(dplyr)
 
 ## code runs successfully without the following libraries but there are some
 ## functions overwritten due to them
-library(rapportools)
-library(markovchain)
-## library(rebmix) # couldn't install
-library(moments)
-library(MASS)
-library(abind)
-library(forecast)
-library(biwavelet)
-library(parallel)
+## library(rapportools)
+## library(markovchain)
+## ## library(rebmix) # couldn't install
+## library(moments)
+## library(MASS)
+## library(abind)
+## library(forecast)
+## library(biwavelet)
+## library(parallel)
 
 
 MAX_ITERATION <- 20
@@ -25,7 +25,7 @@ get_fmod.depmix <- function(model) {
         ##
         set.seed(j*950)
 
-        if ((j %% 2) == 0) {
+        if ((j > MAX_ITERATION/2) == 0) {
             do.random <- TRUE
         } else {
             do.random <- FALSE
@@ -56,9 +56,8 @@ hgt.synoptic.region <- readRDS(
 
 ## for a specific WR number
 ## e.g, 10 PCs
-## start_date="1948-01-01"; end_date="2021-12-31" # for TID/HFAM
 start_date <- as.Date("1979-01-01")
-end_date <- as.Date("2021-12-31") # for CA Watershed Study
+end_date <- as.Date("2021-12-31")
 first.date.weather <- start_date
 last.date.weather <- end_date
 
@@ -142,6 +141,12 @@ init.pars[['conMat']] <- hhconMat
 
 ## s-NHMM on PCs with seasonality
 ## function parameters
+#'  my.nstates : Number of hidden states of Weather Regimes
+#'  my.num.sim : Number of simulation of WRs (1 set of t (number of years), 2 set of t, etc)
+#'  my.synoptic.pcs : "Observed" series of PCs for geopotential heights
+#'  my.dates.vec : vector of dates
+#'  num.iteration.msar : number of simulation of Markov Chain
+#'  modeltype : annual, seasonal, interannual
 my.nstates <- num.states
 my.num.sim <- my.num.sim
 my.synoptic.pcs <- synoptic.pcs
@@ -149,23 +154,6 @@ my.dates.vec <- dates.synoptic[identical.dates.idx]
 num.iteration.hmms
 modeltype <- 'annual'
 init.pars <- init.pars
-
-## prev function body
-
-#'  ---------- # s-NHMM for Annual WRs Simulations -------------------------------
-#'  Fits a non-homogeneous HMM with Seasonality  using
-#'  depmixs4 package and simulates
-#'  markov chains and response models with Seasonality
-#'
-#'  Arguments:
-#'
-#'  my.nstates : Number of hidden states of Weather Regimes
-#'  my.num.sim : Number of simulation of WRs (1 set of t (number of years), 2 set of t, etc)
-#'  my.synoptic.pcs : "Observed" series of PCs for geopotential heights
-#'  my.dates.vec : vector of dates
-#'  num.iteration.msar : number of simulation of Markov Chain
-#'  modeltype : annual, seasonal, interannual
-
 
 ## Prepare simulation output: [number of days (t) * number of sets of simulated WRs (entire stretch, t)] x number of ensemble members
 ts.length <- length(my.dates.vec)*my.num.sim
@@ -294,18 +282,12 @@ gc()
 ## spikes but not much around other times, so it seems to be time intensive
 ## rather than resource intensive. We can probably do something on this.
 
-## NOTE: The pattern was similar to the CPU usage from yesterday when I was
-## using the funnction, so this seems to be the main one that takes time
-## initially. Will definitely have to do something. Considerably long time.
-
-
 fmod.depmix <- get_fmod.depmix(mod)
 
-## Removed mod variable d/t high memory footprint, it doesn't seem to be used after this.
+## Removed mod variable d/t high memory footprint, it doesn't seem to be used
+## after this.
 rm(mod)
 gc()
-
-init.seed <- 1991
 
 ## -------------------------------
 prob.state <- forwardbackward(fmod.depmix)$gamma
@@ -316,40 +298,43 @@ seq.state <- posterior(fmod.depmix,type='viterbi')$state
 ## Probability of each state
 delta.probs <- posterior(fmod.depmix,type='viterbi') %>% dplyr::select(-state)
 
-## # ---------------------------------------------------------- #
-## ------ Simulation ------------------------------------------ #
-## # ---------------------------------------------------------- #
 
+lst.WRs.states <- list(fitted.model = fmod.depmix,
+                       viterbi.seq = seq.state)
 
-## Started 15:42 ended at 15:49. RAM use was really high, but cpu usage was
-## low. so can look into it.
-for (it.cnt in 1:num.iteration.hmms) {
-    sim.fmod <- depmixS4::simulate(fmod.depmix,nsim = my.num.sim, seed = it.cnt)
-    matrix.hmms.seq.states[,it.cnt] <- sim.fmod@states # different from viterbi sequence
-    rm(sim.fmod)                   # has large memory footprint
+saveRDS(lst.WRs.states,
+        file = sprintf("weather-gen/sf-weather-regimes-%d.rds", 1))
 
-    prct.done <- round(it.cnt/num.iteration.hmms*100, digits = 2)
-    if(prct.done%%5 == 0) {
-        print(paste("---finishing ", it.cnt, "out of",
-                    num.iteration.hmms, " simulations -----:",
-                    prct.done, "%"))
+## Save the clustures center as original data table
+library(raster)
+library(stringr)
+
+get_raster <- function(df) {
+    df <- as.data.frame(df)
+    df$lat <- 0
+    df$lon <- 0
+
+    for (i in 1:length(df$lonlat)){
+        ll = df$lonlat[i]
+        ll_split <- str_split_fixed(ll, ",", n=2)
+        lon = as.numeric(ll_split[1])
+        lat = as.numeric(ll_split[2])
+        df$lat[i] <- lat
+        df$lon[i] <- lon
     }
+
+    xyz <- subset(df, select = c("lon", "lat", "geopotential_ht"))
+
+    dfr <- rasterFromXYZ(xyz = xyz)
+    return (dfr)
 }
 
-lst.WRs.sNHMMs.states <- list(matrix.hmms.seq.states=matrix.hmms.seq.states,
-                              fitted.model = fmod.depmix,
-                              viterbi.seq = seq.state,
-                              init.seed = init.seed)
 
+clusters <- aggregate(hgt.synoptic.region, by=list(seq.state), FUN = mean)
 
-
-## The ram is 80% full with R taking >50% of it at this point in code.
-## gc seems to have only decreased it by around 10%, so it's stil high.
-gc()
-print(paste("-- finishing: ", num.states))
-
-
-saveRDS(lst.WRs.sNHMMs.states,
-        file = paste0("weather-gen/out-sf-3-lst.long.", number.years.long2,
-                      ".yrs.WRs.sNHMMs.", num.states, ".states.",
-                      num.iteration.hmms, ".iter_long.CA.WshdStd.rds"))
+for (N in 1:num.states){
+    df <- data.frame(lonlat = names(clusters), geopotential_ht=as.numeric(clusters[N,]))
+    dfr1 <- get_raster(df)
+    writeRaster(dfr1, sprintf("./rasters/kmeans/cluster-%01d.tif", N))
+    ## plot(dfr1)
+}
