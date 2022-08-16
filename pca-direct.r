@@ -1,5 +1,6 @@
 library(raster)
 library(tidyverse)
+library(stringr)
 ## wx.ag variable
 ## load(file='wx_agg.Rdata')
 
@@ -26,7 +27,7 @@ head(table_wide, 1)
 
 ## saveRDS(table_wide, 'weather-gen/hgt_SA.rds')
 
-pca <- prcomp(table_wide, rank = 50, scale. = T)
+pca <- prcomp(table_wide, rank = 10, scale. = T)
 
 summary(pca)
 
@@ -39,7 +40,7 @@ table_appx_long = pivot_longer(as.data.frame(table_appx), cols = -c(), names_to 
 head(table_appx_long)
 ## org_raster <- rasterFromXYZ()
 
-km <- kmeans(pca$x, centers = 8, nstart = 5)
+km <- kmeans(pca$x, centers = 13, nstart = 5)
 
 kmeans_centers = km$centers
 kmeans_revert <- t(t(kmeans_centers %*% t(pca$rotation)) * pca$scale + pca$center)
@@ -66,15 +67,15 @@ get_raster <- function(df) {
 }
 
 
-for (N in 1:50){
-    pca_X <- data.frame(lonlat = names(pca$x[N,]), geopotential_ht=as.numeric(pca$x[N,]))
-    dfr1 <- get_raster(pca_X)
-    writeRaster(dfr1, sprintf("./rasters/pca/component-%02d.tif", N))
-    ## plot(dfr1)
-}
+## for (N in 1:50){
+##     pca_X <- data.frame(lonlat = names(pca$x[N,]), geopotential_ht=as.numeric(pca$x[N,]))
+##     dfr1 <- get_raster(pca_X)
+##     writeRaster(dfr1, sprintf("./rasters/pca/component-%02d.tif", N))
+##     ## plot(dfr1)
+## }
 
 
-for (N in 1:8){
+for (N in 1:13){
     means_N <- data.frame(lonlat = names(kmeans_revert[N,]), geopotential_ht=as.numeric(kmeans_revert[N,]))
     dfr1 <- get_raster(means_N)
     writeRaster(dfr1, sprintf("./rasters/kmeans/cluster-%d.tif", N))
@@ -82,14 +83,14 @@ for (N in 1:8){
 }
 
 
-for (day in 1:20) {
-    original <- data.frame(lonlat = names(table_wide[day,]), geopotential_ht=as.numeric(table_wide[day,]))
-    dfr1 <- get_raster(original)
-    writeRaster(dfr1, sprintf("./rasters/original/day-%02d.tif", day))
-}
+## for (day in 1:20) {
+##     original <- data.frame(lonlat = names(table_wide[day,]), geopotential_ht=as.numeric(table_wide[day,]))
+##     dfr1 <- get_raster(original)
+##     writeRaster(dfr1, sprintf("./rasters/original/day-%02d.tif", day))
+## }
 
-for (day in 1:20) {
-    recreated <- data.frame(lonlat = names(table_appx[day,]), geopotential_ht=as.numeric(table_appx[day,]))
-    dfr1 <- get_raster(recreated)
-    writeRaster(dfr1, sprintf("./rasters/recreated/day-%02d.tif", day))
-}
+## for (day in 1:20) {
+##     recreated <- data.frame(lonlat = names(table_appx[day,]), geopotential_ht=as.numeric(table_appx[day,]))
+##     dfr1 <- get_raster(recreated)
+##     writeRaster(dfr1, sprintf("./rasters/recreated/day-%02d.tif", day))
+## }
