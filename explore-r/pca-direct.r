@@ -6,7 +6,7 @@ library(stringr)
 
 ## dim(wx.ag)
 
-tabular <- read.csv("ncep-data.csv")
+tabular <- read.csv("csvs/ncep-data.csv")
 
 head(tabular)
 
@@ -81,7 +81,6 @@ for (N in 1:13){
     writeRaster(dfr1, sprintf("./rasters/kmeans/cluster-%d.tif", N))
     ## plot(dfr1)
 }
-
 
 ## for (day in 1:20) {
 ##     original <- data.frame(lonlat = names(table_wide[day,]), geopotential_ht=as.numeric(table_wide[day,]))
