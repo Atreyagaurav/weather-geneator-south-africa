@@ -303,7 +303,11 @@ lst.WRs.states <- list(fitted.model = fmod.depmix,
                        viterbi.seq = seq.state)
 
 saveRDS(lst.WRs.states,
-        file = sprintf("weather-gen/sf-weather-regimes-%d.rds", 1))
+        file = sprintf("weather-gen/sf-weather-regimes-%d.rds", 2))
+## save the csv
+regimes <- data.frame(date=common.dates, clusters=seq.state)
+write.csv(regimes, "data/weather-regimes.csv")
+
 
 ## Save the clustures center as original data table
 library(raster)
