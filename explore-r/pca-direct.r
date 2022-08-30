@@ -6,22 +6,22 @@ library(stringr)
 
 ## dim(wx.ag)
 
-tabular <- read.csv("csvs/ncep-data.csv")
+tabular <- read.csv("csvs/daily-500hpa-anomaly.csv")
 
 head(tabular)
+tabular$lon <- tabular$lon-360*(tabular$lon > 180)
+tabular$lonlat <- sprintf("%+.2f,%+.2f", tabular$lon, tabular$lat)
 
-tabular$lonlat <- sprintf("%+.2f,%+.2f", tabular$longitude, tabular$latitude)
 
-
-dropped_df <-subset(tabular, select = c(time_days, lonlat, geopotential_ht))
+dropped_df <-subset(tabular, select = c(time, lonlat, delta_hgt))
 head(dropped_df)
 
 
 table_wide <- spread(dropped_df,
                      key=lonlat,
-                     value=geopotential_ht)
-rownames(table_wide) <- str(table_wide$time_days)
-table_wide <- subset(table_wide, select = -c(time_days))
+                     value=delta_hgt)
+rownames(table_wide) <- str(table_wide$time)
+table_wide <- subset(table_wide, select = -c(time))
 table_wide <- table_wide
 head(table_wide, 1)
 
@@ -36,7 +36,8 @@ table_appx <- t(t(pca$x %*% t(pca$rotation)) * pca$scale + pca$center)
 table_appx[1:4,1:5]
 table_wide[1:4,1:5]
 
-table_appx_long = pivot_longer(as.data.frame(table_appx), cols = -c(), names_to = "lonlat", values_to = "geopotential_ht")
+table_appx_long <- pivot_longer(as.data.frame(table_appx), cols = -c(), names_to = "lonlat", values_to = "delta_hht")
+
 head(table_appx_long)
 ## org_raster <- rasterFromXYZ()
 
@@ -45,7 +46,7 @@ km <- kmeans(pca$x, centers = 13, nstart = 10)
 kmeans_centers = km$centers
 kmeans_revert <- t(t(kmeans_centers %*% t(pca$rotation)) * pca$scale + pca$center)
 
-regimes <- data.frame(date = sort(unique(tabular$datetime)), clusters = km$cluster)
+regimes <- data.frame(date = sort(unique(tabular$time)), clusters = km$cluster)
 
 regimes$date <- str_trunc(str_replace_all(regimes$date, "_", "-"), 10, ellipsis = "")
 head(regimes)
@@ -84,18 +85,18 @@ get_raster <- function(df) {
 for (N in 1:13){
     means_N <- data.frame(lonlat = names(kmeans_revert[N,]), geopotential_ht=as.numeric(kmeans_revert[N,]))
     dfr1 <- get_raster(means_N)
-    writeRaster(dfr1, sprintf("./rasters/kmeans/cluster-%d.tif", N))
+    writeRaster(dfr1, sprintf("./rasters/kmeans.old/cluster-%d.tif", N))
     ## plot(dfr1)
 }
 
-## for (day in 1:20) {
-##     original <- data.frame(lonlat = names(table_wide[day,]), geopotential_ht=as.numeric(table_wide[day,]))
-##     dfr1 <- get_raster(original)
-##     writeRaster(dfr1, sprintf("./rasters/original/day-%02d.tif", day))
-## }
+for (day in 1:20) {
+    original <- data.frame(lonlat = names(table_wide[day,]), geopotential_ht=as.numeric(table_wide[day,]))
+    dfr1 <- get_raster(original)
+    writeRaster(dfr1, sprintf("./rasters/original/day-%02d.tif", day))
+}
 
-## for (day in 1:20) {
-##     recreated <- data.frame(lonlat = names(table_appx[day,]), geopotential_ht=as.numeric(table_appx[day,]))
-##     dfr1 <- get_raster(recreated)
-##     writeRaster(dfr1, sprintf("./rasters/recreated/day-%02d.tif", day))
-## }
+for (day in 1:20) {
+    recreated <- data.frame(lonlat = names(table_appx[day,]), geopotential_ht=as.numeric(table_appx[day,]))
+    dfr1 <- get_raster(recreated)
+    writeRaster(dfr1, sprintf("./rasters/recreated/day-%02d.tif", day))
+}
