@@ -2,18 +2,6 @@ rm(list=ls())
 library(depmixS4) # HMMs fit
 library(dplyr)
 
-## code runs successfully without the following libraries but there are some
-## functions overwritten due to them
-## library(rapportools)
-## library(markovchain)
-## ## library(rebmix) # couldn't install
-## library(moments)
-## library(MASS)
-## library(abind)
-## library(forecast)
-## library(biwavelet)
-## library(parallel)
-
 
 MAX_ITERATION <- 20
 
@@ -25,10 +13,10 @@ get_fmod.depmix <- function(model) {
         ##
         set.seed(j*950)
 
-        if ((j > MAX_ITERATION/2) == 0) {
-            do.random <- TRUE
-        } else {
+        if (j < MAX_ITERATION/2) {
             do.random <- FALSE
+        } else {
+            do.random <- TRUE
         }
 
         print(sprintf("Initial run: %d", j))
@@ -51,8 +39,9 @@ get_fmod.depmix <- function(model) {
 
 ## 1#
 ## // Load processed 500mb-GPH hgt region data and dates
-hgt.synoptic.region <- readRDS(
-    file='weather-gen/hgt_SA.rds')
+## hgt.synoptic.region <- readRDS(
+##     file='weather-gen/hgt_SA.rds')
+hgt.synoptic.region <- readRDS('weather-gen/hgt_SA_anomaly.rds')
 
 ## for a specific WR number
 ## e.g, 10 PCs
@@ -64,11 +53,11 @@ last.date.weather <- end_date
 dates.weather <- seq(start_date, end_date, by="days")
 
 start_date_synoptic <- as.Date("1979-01-01")
-end_date_synoptic <- as.Date("2021-12-31")
+end_date_synoptic <- as.Date("2022-06-30")
 dates.synoptic <- seq(start_date_synoptic, end_date_synoptic, by="days")
 
 common.start <- if (start_date > start_date_synoptic) start_date else start_date_synoptic
-common.end <- if (end_date > end_date_synoptic) end_date else end_date_synoptic
+common.end <- if (end_date < end_date_synoptic) end_date else end_date_synoptic
 stopifnot(common.start < common.end)
 
 common.dates <- seq(common.start, common.end, by="days")
@@ -91,7 +80,7 @@ synoptic.pcs <- hgt.synoptic.region.pca$x[,1:num_eofs]
 ## 3#
 ## / HMMs runs followed by s-NHMMs
 ## for a specific WR number
-num.states <- 13 # WRs number
+num.states <- 6 # WRs number
 number.years.long <- 1000 # e.g., 1000 years; 2000 years, etc
 
 ## number of chunks of historical periods; e.g., 1 is one set of
@@ -306,7 +295,7 @@ saveRDS(lst.WRs.states,
         file = sprintf("weather-gen/sf-weather-regimes-%d.rds", 2))
 ## save the csv
 regimes <- data.frame(date=common.dates, clusters=seq.state)
-write.csv(regimes, "data/weather-regimes.csv")
+write.csv(regimes, "csvs/weather-regimes-scott.csv")
 
 
 ## Save the clustures center as original data table
@@ -319,10 +308,10 @@ get_raster <- function(df) {
     df$lon <- 0
 
     for (i in 1:length(df$lonlat)){
-        ll = df$lonlat[i]
+        ll <- df$lonlat[i]
         ll_split <- str_split_fixed(ll, ",", n=2)
-        lon = as.numeric(ll_split[1])
-        lat = as.numeric(ll_split[2])
+        lon <- as.numeric(ll_split[1])
+        lat <- as.numeric(ll_split[2])
         df$lat[i] <- lat
         df$lon[i] <- lon
     }
@@ -330,15 +319,16 @@ get_raster <- function(df) {
     xyz <- subset(df, select = c("lon", "lat", "geopotential_ht"))
 
     dfr <- rasterFromXYZ(xyz = xyz)
-    return (dfr)
+    return(dfr)
 }
 
 
 clusters <- aggregate(hgt.synoptic.region, by=list(seq.state), FUN = mean)
 
+
 for (N in 1:num.states){
     df <- data.frame(lonlat = names(clusters), geopotential_ht=as.numeric(clusters[N,]))
     dfr1 <- get_raster(df)
-    writeRaster(dfr1, sprintf("./rasters/kmeans/cluster-%01d.tif", N))
+    writeRaster(dfr1, sprintf("./rasters/kmeans.scott/cluster-%01d.tif", N))
     ## plot(dfr1)
 }

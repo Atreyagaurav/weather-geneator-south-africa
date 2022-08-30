@@ -1,3 +1,5 @@
+## No longer used, as now we're using the downloaded .nc file to crop the extents.
+
 library(RNCEP)
 library(fields)
 library(readr)
@@ -28,6 +30,14 @@ load(file='wx_agg.Rdata')
 wx.ag.min = floor(min(wx.ag)/100)* 100
 wx.ag.max = ceiling(max(wx.ag)/100)* 100
 zlim = c(wx.ag.min, wx.ag.max)
+
+
+
+NCEP.vis.area(wx.ag, layer = 1, show.pts = FALSE, draw.contours = FALSE,
+              cols = terrain.colors(64),
+              map.args = list(regions="south africa"))
+
+#              image.plot.args = list(legend.args=list(zlim=c(5e3,6e3))))
 
 for (i in 1:50) {
 png(sprintf("/tmp/plt-%03d.png", i))

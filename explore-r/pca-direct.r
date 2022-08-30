@@ -25,7 +25,8 @@ table_wide <- subset(table_wide, select = -c(time))
 table_wide <- table_wide
 head(table_wide, 1)
 
-## saveRDS(table_wide, 'weather-gen/hgt_SA.rds')
+## save this for scott's code
+saveRDS(table_wide, 'weather-gen/hgt_SA_anomaly.rds')
 
 pca <- prcomp(table_wide, rank = 10, scale. = T)
 
