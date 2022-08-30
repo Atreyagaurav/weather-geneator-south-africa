@@ -40,10 +40,16 @@ table_appx_long = pivot_longer(as.data.frame(table_appx), cols = -c(), names_to 
 head(table_appx_long)
 ## org_raster <- rasterFromXYZ()
 
-km <- kmeans(pca$x, centers = 13, nstart = 5)
+km <- kmeans(pca$x, centers = 13, nstart = 10)
 
 kmeans_centers = km$centers
 kmeans_revert <- t(t(kmeans_centers %*% t(pca$rotation)) * pca$scale + pca$center)
+
+regimes <- data.frame(date = sort(unique(tabular$datetime)), clusters = km$cluster)
+
+regimes$date <- str_trunc(str_replace_all(regimes$date, "_", "-"), 10, ellipsis = "")
+head(regimes)
+write.csv(regimes, "csvs/my-kmeans.csv")
 
 
 get_raster <- function(df) {
