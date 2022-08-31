@@ -329,6 +329,6 @@ clusters <- aggregate(hgt.synoptic.region, by=list(seq.state), FUN = mean)
 for (N in 1:num.states){
     df <- data.frame(lonlat = names(clusters), geopotential_ht=as.numeric(clusters[N,]))
     dfr1 <- get_raster(df)
-    writeRaster(dfr1, sprintf("./rasters/kmeans.scott/cluster-%01d.tif", N))
+    writeRaster(dfr1, sprintf("rasters/kmeans.scott/cluster-%01d.tif", N))
     ## plot(dfr1)
 }
