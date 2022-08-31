@@ -5,7 +5,7 @@ import os
 # import sys
 
 # hgt_nc_file = sys.argv[1]
-hgt_nc_file = "ncep-reanalysis-2/4xdaily-500hpa.nc"
+hgt_nc_file = "data/4xdaily-500hpa.nc"
 nc = netCDF4.Dataset(hgt_nc_file, mode='r')
 
 lat = nc.variables['lat'][:]
