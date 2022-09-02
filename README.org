@@ -1,0 +1,277 @@
+# -*- org-export-use-babel: nil -*-
+#+TITLE: Weather Regime Analysis
+#+AUTHOR: Gaurav Atreya, Garima Mandavya
+#+LATEX_CLASS: unihw
+#+LATEX_CLASS_OPTIONS: [titlepage,12pt]
+
+#+OPTIONS: toc:nil
+
+#+LATEX_HEADER: \ClassCode{UC}
+#+LATEX_HEADER: \ClassName{Water Systems Analysis Lab}
+#+LATEX_HEADER: \ActivityType{Research}
+#+LATEX_HEADER: \SubmissionType{Notes}
+#+LATEX_HEADER: \SubmissionNumber{}
+#+LATEX_HEADER: \SubmissionName{Weather Regimes in South Africa}
+#+LATEX_HEADER: \Author{}
+#+LATEX_HEADER: \Mnumber{}
+#+LATEX_HEADER: \Keywords{}
+#+LATEX_HEADER: \lhead{}
+
+
+* Objective
+:PROPERTIES:
+:CUSTOM_ID: objective
+:END:
+We're trying to use NCEP reanalysis 2 data for the weather generator
+script. We're doing it to help with out study areas in south africa.
+Since weather weather generator can be reused for different basins our
+plan is to generate one model and then use it for all the study basins
+across south africa.
+
+Our Study area range for the weather regimes is:
+- lat: -50.0 → -15.0
+- lon: 330.0 → 60.0
+
+* TOC :TOC:noexport:
+:PROPERTIES:
+:CUSTOM_ID: toc
+:END:
+- [[#objective][Objective]]
+- [[#download-and-prepare-anomalies-data][Download and Prepare Anomalies Data]]
+  - [[#current-method][Current Method]]
+  - [[#previous-method][Previous Method]]
+- [[#pca-analysis][PCA analysis]]
+- [[#kmeans-clustering][Kmeans clustering]]
+- [[#scotts-code-for-weather-regimes][Scott's code for Weather regimes]]
+  - [[#input-data-it-takes-a-input][Input data It takes a input]]
+  - [[#pca][PCA]]
+  - [[#hmms][HMMs]]
+  - [[#output][Output]]
+- [[#markov-chain][Markov Chain]]
+- [[#correlations][Correlations]]
+
+* Download and Prepare Anomalies Data
+:PROPERTIES:
+:CUSTOM_ID: download-and-prepare-anomalies-data
+:END:
+** Current Method
+:PROPERTIES:
+:CUSTOM_ID: current-method
+:END:
+*** Download
+:PROPERTIES:
+:CUSTOM_ID: download
+:END:
+We downloaded the Ncep reanalysis 2 data for the whole world and then
+used [[http://nco.sourceforge.net/][=nco= tool]] to crop it and concat
+it into a single file, then used a python script to calculate the
+anomaly.
+
+*** Crop
+:PROPERTIES:
+:CUSTOM_ID: crop
+:END:
+The commands to crop and concatenate using nco for example looks like
+this:
+
+#+begin_src bash
+ncks -d lat,-50.,-15. -d lon,330.,60. daily-mean-levels/hgt.1979.nc ./4xdaily-cropped/hgt.1979.nc
+#+end_src
+
+The command was run for all the files =hgt.1979.nc= to =hgt.2022.nc= in
+a loop (with gnu parallel).
+
+=ncks= is a tool from =nco= it is named NetCDF Kitchen Sink. Here we use
+=-d= flag that has following use:
+
+#+begin_quote
+-d, --dmn, dimension dim,[min][,[max]][,[stride]] Dimension's limits and stride in hyperslab
+#+end_quote
+
+Here we're copying file with cropped using =lat= and =lon= fields.
+Advantages of using this tool over python is that it automatically
+understands longitude so we can do "from 330 to 60" whereas in actual
+dataset they are on two ends of the matrix as it's ordered 0-360.
+
+For more details there are
+[[http://nco.sourceforge.net/nco.html#xmp_ncks][Some examples here]] on
+how to use it.
+
+*** Concat
+:PROPERTIES:
+:CUSTOM_ID: concat
+:END:
+Now cropped data were concatenated into a single file:
+
+#+begin_src bash
+ncrcat daily-mean-levels/*.nc 4xdaily-mean.nc
+#+end_src
+
+=ncrcat= is the Concatenator from =nco=.
+
+*** Anomaly Calculation
+:PROPERTIES:
+:CUSTOM_ID: anomaly-calculation
+:END:
+With some clever scripting or more diving to =nco= docs there might have
+been something to calculate the anomalies here too, but I did it in
+numpy (in home turf).
+
+The calculation is done in file: [[file:explore-py/netcdf_to_csv.py]]
+
+It saves a csv with same name plus =-anomaly= as the input with headers:
+=time,lat,lon,delta_hgt=
+
+** Previous Method
+:PROPERTIES:
+:CUSTOM_ID: previous-method
+:END:
+Data is downloaded using =NCEP= library, you can download it using:
+
+#+begin_src R
+install.packages("RNCEP")
+#+end_src
+
+The file =download.r= has the code to download, calculate yearly
+aggregate and save tabular data. It's made to be run interactively.
+
+* PCA analysis
+:PROPERTIES:
+:CUSTOM_ID: pca-analysis
+:END:
+PCA analysis is done to reduce the dimensionality of the data. It took
+me a while to understand the dimensions of this data as initially I
+thought it was like point data with dimensions lat, lon and time. Hence
+no reason to reduce the dimensionality.
+
+Now I'm come to the conclusion that, the data isn't the point but rather
+a state, which includes all the gridded data at single time frame. Which
+means at a single time we have =lat × lon= number of points, and it's a
+matrix data, hence we have =lat × lon= dimensions for each data.
+
+* Kmeans clustering
+:PROPERTIES:
+:CUSTOM_ID: kmeans-clustering
+:END:
+After PCA analysis was done, then those ordinates were used for k means
+clustering to get N points. After doing the reverse transformation from
+them, we got the N clusters in original raster format. cluster rasters
+are in rasters directory.
+
+We tried 6, 8 and 13 clusters with similar results.
+
+* Scott's code for Weather regimes
+:PROPERTIES:
+:CUSTOM_ID: scotts-code-for-weather-regimes
+:END:
+Scott's code we got is a single file: [[file:weather-gen/identify.simulate.WRs_markovians.R]]
+
+The current file is a heavily modified one, but only the syntax was
+modified the overall logic is the same (the statistical functions are
+unchanged). You can look over the repository history to get the original
+code and how it was changed over time. [original
+code [[file:weather-gen/identify.simulate.WRs_markovians.org.R]].]
+
+The steps on the code are as follows:
+
+** Input data It takes a input
+data in rds format with tabular value of variables in columns
+(=lat x lon=) and time in rows. There is no time columns, all the
+columns are expected to be data for PCA. I've names the column's titles
+as =lon,lat= to make conversion back to raster easier.
+
+Then the data dates are entered separately and they are used to subset
+the input data to the required rows of continuous data.
+
+** PCA
+:PROPERTIES:
+:CUSTOM_ID: pca
+:END:
+First the PCA analysis is done on the input data, then number of PCA to
+use is chosen and that many columns are extracted.
+
+** HMMs
+:PROPERTIES:
+:CUSTOM_ID: hmms
+:END:
+Hidden markov Model is fit using =depmix= package. Data from which is
+taken to generate initialization parameters for =s-NHMMs=, there is also
+seasonality introduced with =-1 + CosT + SinT= that has a time period of
+1 year for annual data.
+
+After the initialization is over model is fit. Originally it ran 10
+models and chose one of them, I've modified it to end once a model
+converges to a solution.
+
+** Output
+:PROPERTIES:
+:CUSTOM_ID: output
+:END:
+After the model is fitted, we extracted the cluster that all the days
+fall into, and we also recalculated the raster for each cluster
+centroids to visualize the clusters in gis. The generated rasters are
+saved in: <./rasters/kmeans.Scott/>.
+
+There is a qgis file =vis.qgs= if you open it, the layers there are
+linked to the files generated by the code (depending on number of
+clusters some of them might be unavailable, ignore those). The Layouts
+in the qgis files automatically visualizes the clusters. You might have
+to change the maximum and minimum in the symbology for better patches of
+high and low anomalies.
+
+#+caption: Clusters Visualized
+[[file:graphics/weather-regimes-6.png]]
+
+* Markov Chain
+:PROPERTIES:
+:CUSTOM_ID: markov-chain
+:END:
+After we had clusters, and categorization of each points in the time
+series. Then each pattern was simply counted and then converted to
+observed probabilities.
+
+We can use it to see if there are some relationships between the
+clusters.
+
+Results are in the file: [file:./csvs/tables.ods] locally. The
+visualizations gives following observations:
+
+#+caption: Marcov Probabilities with 1 day length chain
+[[file:graphics/marcov-prob-6-1.png]]
+
+1 day chain probabilities show higher counts and probabilities for
+repetition of same cluster in the following day. The cluster 6 and 3
+have higher probabilities of occurring after one another.
+
+The Figure of clusters in [[#output][Output Section]] also shows the
+pattern for 3 and 6 are similar so numbers and visual observations are
+in sync here.
+
+#+caption: Marcov Probabilities with 2 days length chain
+[[file:graphics/marcov-prob-6-2.png]]
+
+There are few interesting patterns here, like some transformation are
+higher in relation to change than repeating the last one, but looking at
+the counts those occur too few times to make an actual conclusions. And
+once again only pattern that has significant count than repeating
+sequences are (6,3) and (3,6).
+
+* Correlations
+:PROPERTIES:
+:CUSTOM_ID: correlations
+:END:
+We used the precipitation values to see the correlation of weather
+regimes and precipitation (binned into No precipitation, Low
+precipitation and High precipitations). As of now the correlation isn't
+great.
+
+Significant findings from correlation analysis: - The correlation of
+clusters with precipitation is very bad (marginal) - Correlation of
+clusters from Scott's code was slightly better than simple cluster from
+kmeans. - We also did correlation of =precip~month= and it seems to be
+way better than both of them. Which also suggests the improvement on
+clusters from Scott's code could be due to the seasonality included in
+the clustering (which forces/encourages the clusters to occur in nearby
+months).
+
+Correlations results are explained in details in another file.
