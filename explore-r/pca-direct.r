@@ -28,7 +28,7 @@ head(table_wide, 1)
 ## save this for scott's code
 saveRDS(table_wide, 'weather-gen/hgt_SA_anomaly.rds')
 
-pca <- prcomp(table_wide, rank = 10, scale. = T)
+pca <- prcomp(table_wide, rank = 10, scale. = TRUE)
 
 summary(pca)
 
@@ -42,16 +42,16 @@ table_appx_long <- pivot_longer(as.data.frame(table_appx), cols = -c(), names_to
 head(table_appx_long)
 ## org_raster <- rasterFromXYZ()
 
-km <- kmeans(pca$x, centers = 13, nstart = 10)
+km <- kmeans(pca$x, centers = 6, nstart = 10)
 
-kmeans_centers = km$centers
+kmeans_centers <- km$centers
 kmeans_revert <- t(t(kmeans_centers %*% t(pca$rotation)) * pca$scale + pca$center)
 
 regimes <- data.frame(date = sort(unique(tabular$time)), clusters = km$cluster)
 
 regimes$date <- str_trunc(str_replace_all(regimes$date, "_", "-"), 10, ellipsis = "")
 head(regimes)
-write.csv(regimes, "csvs/my-kmeans.csv")
+write.csv(regimes, "csvs/simple-kmeans-6.csv")
 
 
 get_raster <- function(df) {
@@ -60,10 +60,10 @@ get_raster <- function(df) {
     df$lon <- 0
 
     for (i in 1:length(df$lonlat)){
-        ll = df$lonlat[i]
+        ll <- df$lonlat[i]
         ll_split <- str_split_fixed(ll, ",", n=2)
-        lon = as.numeric(ll_split[1])
-        lat = as.numeric(ll_split[2])
+        lon <- as.numeric(ll_split[1])
+        lat <- as.numeric(ll_split[2])
         df$lat[i] <- lat
         df$lon[i] <- lon
     }
@@ -71,7 +71,7 @@ get_raster <- function(df) {
     xyz <- subset(df, select = c("lon", "lat", "geopotential_ht"))
 
     dfr <- rasterFromXYZ(xyz = xyz)
-    return (dfr)
+    return(dfr)
 }
 
 
