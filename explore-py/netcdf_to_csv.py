@@ -42,7 +42,7 @@ for day, ind in hgt_ltm_days.items():
 
 
 fname, _ = os.path.splitext(hgt_nc_file)
-outfile = f'{fname}-anomaly.csv'
+outfile = f'csvs/daily-500hpa-anomaly.csv'
 
 with open(outfile, "w") as writer:
     writer.write('time,lat,lon,delta_hgt\n')

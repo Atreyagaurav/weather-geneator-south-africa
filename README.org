@@ -37,6 +37,11 @@ Our Study area range for the weather regimes is:
 :CUSTOM_ID: toc
 :END:
 - [[#objective][Objective]]
+- [[#quick-run-instructions][Quick Run Instructions]]
+  - [[#available-data-files][Available data files]]
+  - [[#available-script-files][Available script files]]
+  - [[#output-files][Output files]]
+  - [[#output-visualizations][Output visualizations]]
 - [[#download-and-prepare-anomalies-data][Download and Prepare Anomalies Data]]
   - [[#current-method][Current Method]]
   - [[#previous-method][Previous Method]]
@@ -49,6 +54,81 @@ Our Study area range for the weather regimes is:
   - [[#output][Output]]
 - [[#markov-chain][Markov Chain]]
 - [[#correlations][Correlations]]
+
+* Quick Run Instructions
+
+** Available data files
+The =data/= directory has two data files, one is for average precipitation (for current testing only) and the 4xdaily hpa data has geopotential height at 500hpa with frequency of 6 hours. There is a script to convert it to daily and calculate the anomaly, =.nc= is stored here because of preference for low storage space.
+#+begin_example
+data/
+├── 4xdaily-500hpa.nc
+└── average-precip.csv
+#+end_example
+** Available script files
+*** Anomaly calculation [Python]
+The python script =explore-py/netcdf_to_csv.py= has the code to convert the .nc file to csv file with daily anomalies, you can simply run it from project root.
+
+You need python modules =netCDF4= and =numpy= to run it.
+
+#+begin_example
+weather-geneator-south-africa (main)$ python explore-py/netcdf_to_csv.py
+weather-geneator-south-africa (main)$ tree data/
+data/
+├── 4xdaily-500hpa-anomaly.csv
+├── 4xdaily-500hpa.nc
+└── average-precip.csv
+#+end_example
+
+It'll write a file =data/4xdaily-500hpa-anomaly.csv= with daily anomalies, as shown above.
+
+*** Process the csv data for weather generator script [R]
+The weather generator script uses a rds file with just the tabular data of rasters, so this script generates that and puts the =lat,lon= data in the headers so we can back calculate the rasters after the algorithm is done.
+
+The script =explore-r/pca-direct.r= takes care of that (and more).
+
+You can run it only till Line 30 to generate the =.rds= file (shown below).
+#+begin_src 
+## save this for scott's code
+saveRDS(table_wide, 'weather-gen/hgt_SA_anomaly.rds')  
+#+end_src
+
+Remaining part does a simple clustering algorithm based on just the PCA. And saves the clusters in =rasters/kmeans.old/=
+
+*** weather generator code [R]
+Since the files are ready, now you can just run the script =weather-gen/identify.simulate.WRs_markovians.R=
+
+*** Marcovian (?) Probability
+The file =explore-py/markov.py= has the code to calculate the probabilities for marcov chain.
+
+Change Line 6 =marcov_len = 1= to another value if you want to calculate longer chain.
+
+** Output files
+The files generated are shown below:
+#+begin_example
+csvs/
+├── daily-500hpa-anomaly.csv
+├── freq-table-scott-6-1.csv
+├── prob-table-scott-6-1.csv
+└── weather-regimes-scott-6.csv
+
+rasters/
+├── kmeans.scott
+│   ├── cluster-1.tif
+│   ├── cluster-1.tif.aux.xml
+│   ├── cluster-2.tif
+│   ├── cluster-2.tif.aux.xml
+│   ├── cluster-3.tif
+│   ├── cluster-3.tif.aux.xml
+│   ├── cluster-4.tif
+│   ├── cluster-4.tif.aux.xml
+│   ├── cluster-5.tif
+│   ├── cluster-5.tif.aux.xml
+│   ├── cluster-6.tif
+│   └── cluster-6.tif.aux.xml
+#+end_example
+
+** Output visualizations
+Open the qgis file =vis.qgz= for visualization of clusters. You might have to change the maximum and minimum for the colorscale.
 
 * Download and Prepare Anomalies Data
 :PROPERTIES:

@@ -86,7 +86,7 @@ get_raster <- function(df) {
 for (N in 1:13){
     means_N <- data.frame(lonlat = names(kmeans_revert[N,]), geopotential_ht=as.numeric(kmeans_revert[N,]))
     dfr1 <- get_raster(means_N)
-    writeRaster(dfr1, sprintf("./rasters/kmeans.old/cluster-%d.tif", N))
+    writeRaster(dfr1, sprintf("rasters/kmeans.old/cluster-%d.tif", N))
     ## plot(dfr1)
 }
 
