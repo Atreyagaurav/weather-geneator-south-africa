@@ -72,14 +72,12 @@ You need python modules =netCDF4= and =numpy= to run it.
 
 #+begin_example
 weather-geneator-south-africa (main)$ python explore-py/netcdf_to_csv.py
-weather-geneator-south-africa (main)$ tree data/
-data/
-├── 4xdaily-500hpa-anomaly.csv
-├── 4xdaily-500hpa.nc
-└── average-precip.csv
+weather-geneator-south-africa (main)$ tree csvs/
+csvs/
+└── daily-500hpa-anomaly.csv
 #+end_example
 
-It'll write a file =data/4xdaily-500hpa-anomaly.csv= with daily anomalies, as shown above.
+It'll write a file =csvs/daily-500hpa-anomaly.csv= with daily anomalies, as shown above.
 
 *** Process the csv data for weather generator script [R]
 The weather generator script uses a rds file with just the tabular data of rasters, so this script generates that and puts the =lat,lon= data in the headers so we can back calculate the rasters after the algorithm is done.
