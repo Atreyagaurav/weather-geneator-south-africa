@@ -41,7 +41,7 @@ get_fmod.depmix <- function(model) {
 ## // Load processed 500mb-GPH hgt region data and dates
 ## hgt.synoptic.region <- readRDS(
 ##     file='weather-gen/hgt_SA.rds')
-hgt.synoptic.region <- readRDS('weather-gen/hgt_SA_anomaly.rds')
+hgt.synoptic.region <- readRDS('data/hgt-SA-anomaly.rds')
 
 ## for a specific WR number
 ## e.g, 10 PCs

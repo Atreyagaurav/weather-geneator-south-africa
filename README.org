@@ -60,11 +60,15 @@ Our Study area range for the weather regimes is:
 ** Available data files
 The =data/= directory has two data files, one is for average precipitation (for current testing only) and the 4xdaily hpa data has geopotential height at 500hpa with frequency of 6 hours. There is a script to convert it to daily and calculate the anomaly, =.nc= is stored here because of preference for low storage space.
 #+begin_example
-data/
+data
 ├── 4xdaily-500hpa.nc
-└── average-precip.csv
+├── average-precip.csv
+└── hgt-SA-anomaly.rds
 #+end_example
 ** Available script files
+You can jump to [[weather generator code \[R\]]] directly to only run the weather generator clustering algorithm.
+
+
 *** Anomaly calculation [Python]
 The python script =explore-py/netcdf_to_csv.py= has the code to convert the .nc file to csv file with daily anomalies, you can simply run it from project root.
 
@@ -87,7 +91,7 @@ The script =explore-r/pca-direct.r= takes care of that (and more).
 You can run it only till Line 30 to generate the =.rds= file (shown below).
 #+begin_src 
 ## save this for scott's code
-saveRDS(table_wide, 'weather-gen/hgt_SA_anomaly.rds')  
+saveRDS(table_wide, 'data/hgt-SA-anomaly.rds')  
 #+end_src
 
 Remaining part does a simple clustering algorithm based on just the PCA. And saves the clusters in =rasters/kmeans.old/=

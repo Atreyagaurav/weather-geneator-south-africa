@@ -26,7 +26,7 @@ table_wide <- table_wide
 head(table_wide, 1)
 
 ## save this for scott's code
-saveRDS(table_wide, 'weather-gen/hgt_SA_anomaly.rds')
+saveRDS(table_wide, 'data/hgt-SA-anomaly.rds')
 
 pca <- prcomp(table_wide, rank = 10, scale. = TRUE)
 
